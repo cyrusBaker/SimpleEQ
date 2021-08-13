@@ -27,11 +27,22 @@ hiCutSlopeSliderAttachment(audioProcessor.apvts, "HiCut Slope", hiCutSlopeSlider
         addAndMakeVisible(comp);
     }
     
+    const auto& params = audioProcessor.getParameters();
+    for( auto param: params ) {
+        param->addListener(this);
+    }
+    
+    startTimerHz(60);
+    
     setSize (600, 400);
 }
 
 SimpleEQAudioProcessorEditor::~SimpleEQAudioProcessorEditor()
 {
+    const auto& params = audioProcessor.getParameters();
+    for( auto param: params ) {
+        param->removeListener(this);
+    }
 }
 
 //==============================================================================
@@ -150,7 +161,17 @@ void SimpleEQAudioProcessorEditor::parameterValueChanged( int parameterIndex, fl
 void SimpleEQAudioProcessorEditor::timerCallback() {
     if( parametersChanged.compareAndSetBool(false, true)) {
         //update monochain
+        auto chainSettings = getChainSettings(audioProcessor.apvts);
+        auto peakCoefficients = makePeakFilter(chainSettings, audioProcessor.getSampleRate());
+        updateCoefficients(monoChain.get<ChainPositions::Peak>().coefficients, peakCoefficients);
+        
+        auto lowCutCoefficients = makeLowCutFilter(chainSettings, audioProcessor.getSampleRate());
+        auto hiCutCoefficients = makeHiCutFilter(chainSettings, audioProcessor.getSampleRate());
+        
+        updateCutFilter(monoChain.get<ChainPositions::LowCut>(), lowCutCoefficients, chainSettings.lowCutSlope);
+        updateCutFilter(monoChain.get<ChainPositions::HiCut>(), hiCutCoefficients, chainSettings.hiCutSlope);
         //signal repaint
+        repaint();
     }
 }
 
